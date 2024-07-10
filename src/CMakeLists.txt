@@ -1,7 +1,7 @@
 # Setup the project and settings
 project(raylib C)
-set(PROJECT_VERSION 5.0.0)
-set(API_VERSION 500)
+set(PROJECT_VERSION 5.5.0)
+set(API_VERSION 550)
 
 include(GNUInstallDirs)
 include(JoinPaths)
@@ -15,7 +15,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     endif()
 
     message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
-    
+
     set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
@@ -69,7 +69,10 @@ else()
 endif()
 
 if (${PLATFORM} MATCHES "Web")
-    target_link_options(raylib PRIVATE "-sUSE_GLFW=3")
+    target_link_options(raylib PUBLIC "-sUSE_GLFW=3")
+    if(${GRAPHICS} MATCHES "GRAPHICS_API_OPENGL_ES3")
+        target_link_options(raylib PUBLIC "-sFULL_ES3")
+    endif()
 endif()
 
 set_target_properties(raylib PROPERTIES

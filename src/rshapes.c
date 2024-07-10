@@ -126,7 +126,7 @@ Rectangle GetShapesTextureRectangle(void)
 // Draw a pixel
 void DrawPixel(int posX, int posY, Color color)
 {
-  DrawPixelV((Vector2){ (float)posX, (float)posY }, color);
+    DrawPixelV((Vector2){ (float)posX, (float)posY }, color);
 }
 
 // Draw a pixel (Vector version)
@@ -194,20 +194,19 @@ void DrawLineV(Vector2 startPos, Vector2 endPos, Color color)
 }
 
 // Draw lines sequuence (using gl lines)
-void DrawLineStrip(Vector2 *points, int pointCount, Color color)
+void DrawLineStrip(const Vector2 *points, int pointCount, Color color)
 {
-    if (pointCount >= 2)
-    {
-        rlBegin(RL_LINES);
-            rlColor4ub(color.r, color.g, color.b, color.a);
+    if (pointCount < 2) return; // Security check
 
-            for (int i = 0; i < pointCount - 1; i++)
-            {
-                rlVertex2f(points[i].x, points[i].y);
-                rlVertex2f(points[i + 1].x, points[i + 1].y);
-            }
-        rlEnd();
-    }
+    rlBegin(RL_LINES);
+        rlColor4ub(color.r, color.g, color.b, color.a);
+
+        for (int i = 0; i < pointCount - 1; i++)
+        {
+            rlVertex2f(points[i].x, points[i].y);
+            rlVertex2f(points[i + 1].x, points[i + 1].y);
+        }
+    rlEnd();
 }
 
 // Draw line using cubic-bezier spline, in-out interpolation, no control points
@@ -338,7 +337,7 @@ void DrawCircleSector(Vector2 center, float radius, float startAngle, float endA
         }
 
         // NOTE: In case number of segments is odd, we add one last piece to the cake
-        if ((segments%2) == 1)
+        if ((((unsigned int)segments)%2) == 1)
         {
             rlColor4ub(color.r, color.g, color.b, color.a);
 
@@ -807,30 +806,25 @@ void DrawRectangleGradientEx(Rectangle rec, Color col1, Color col2, Color col3, 
 }
 
 // Draw rectangle outline
-// NOTE: On OpenGL 3.3 and ES2 we use QUADS to avoid drawing order issues
+// WARNING: All Draw*Lines() functions use RL_LINES for drawing,
+// it implies flushing the current batch and changing draw mode to RL_LINES
+// but it solves another issue: https://github.com/raysan5/raylib/issues/3884
 void DrawRectangleLines(int posX, int posY, int width, int height, Color color)
 {
-#if defined(SUPPORT_QUADS_DRAW_MODE)
-    DrawRectangle(posX, posY, width, 1, color);
-    DrawRectangle(posX + width - 1, posY + 1, 1, height - 2, color);
-    DrawRectangle(posX, posY + height - 1, width, 1, color);
-    DrawRectangle(posX, posY + 1, 1, height - 2, color);
-#else
     rlBegin(RL_LINES);
         rlColor4ub(color.r, color.g, color.b, color.a);
-        rlVertex2f(posX + 1, posY + 1);
-        rlVertex2f(posX + width, posY + 1);
+        rlVertex2f((float)posX, (float)posY);
+        rlVertex2f((float)posX + (float)width, (float)posY + 1);
 
-        rlVertex2f(posX + width, posY + 1);
-        rlVertex2f(posX + width, posY + height);
+        rlVertex2f((float)posX + (float)width, (float)posY + 1);
+        rlVertex2f((float)posX + (float)width, (float)posY + (float)height);
 
-        rlVertex2f(posX + width, posY + height);
-        rlVertex2f(posX + 1, posY + height);
+        rlVertex2f((float)posX + (float)width, (float)posY + (float)height);
+        rlVertex2f((float)posX + 1, (float)posY + (float)height);
 
-        rlVertex2f(posX + 1, posY + height);
-        rlVertex2f(posX + 1, posY + 1);
+        rlVertex2f((float)posX + 1, (float)posY + (float)height);
+        rlVertex2f((float)posX + 1, (float)posY + 1);
     rlEnd();
-#endif
 }
 
 // Draw rectangle outline with extended parameters
@@ -1090,8 +1084,15 @@ void DrawRectangleRounded(Rectangle rec, float roundness, int segments, Color co
 #endif
 }
 
+// Draw rectangle with rounded edges
+// TODO: This function should be refactored to use RL_LINES, for consistency with other Draw*Lines()
+void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, Color color)
+{
+    DrawRectangleRoundedLinesEx(rec, roundness, segments, 1.0f, color);
+}
+
 // Draw rectangle with rounded edges outline
-void DrawRectangleRoundedLines(Rectangle rec, float roundness, int segments, float lineThick, Color color)
+void DrawRectangleRoundedLinesEx(Rectangle rec, float roundness, int segments, float lineThick, Color color)
 {
     if (lineThick < 0) lineThick = 0;
 
@@ -1382,7 +1383,7 @@ void DrawTriangleLines(Vector2 v1, Vector2 v2, Vector2 v3, Color color)
 // Draw a triangle fan defined by points
 // NOTE: First vertex provided is the center, shared by all triangles
 // By default, following vertex should be provided in counter-clockwise order
-void DrawTriangleFan(Vector2 *points, int pointCount, Color color)
+void DrawTriangleFan(const Vector2 *points, int pointCount, Color color)
 {
     if (pointCount >= 3)
     {
@@ -1413,7 +1414,7 @@ void DrawTriangleFan(Vector2 *points, int pointCount, Color color)
 
 // Draw a triangle strip defined by points
 // NOTE: Every new vertex connects with previous two
-void DrawTriangleStrip(Vector2 *points, int pointCount, Color color)
+void DrawTriangleStrip(const Vector2 *points, int pointCount, Color color)
 {
     if (pointCount >= 3)
     {
@@ -1567,14 +1568,14 @@ void DrawPolyLinesEx(Vector2 center, int sides, float radius, float rotation, fl
 //----------------------------------------------------------------------------------
 
 // Draw spline: linear, minimum 2 points
-void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
+void DrawSplineLinear(const Vector2 *points, int pointCount, float thick, Color color)
 {
     if (pointCount < 2) return;
 
 #if defined(SUPPORT_SPLINE_MITERS)
     Vector2 prevNormal = (Vector2){-(points[1].y - points[0].y), (points[1].x - points[0].x)};
     float prevLength = sqrtf(prevNormal.x*prevNormal.x + prevNormal.y*prevNormal.y);
-    
+
     if (prevLength > 0.0f)
     {
         prevNormal.x /= prevLength;
@@ -1587,7 +1588,7 @@ void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
     }
 
     Vector2 prevRadius = { 0.5f*thick*prevNormal.x, 0.5f*thick*prevNormal.y };
-    
+
     for (int i = 0; i < pointCount - 1; i++)
     {
         Vector2 normal = { 0 };
@@ -1596,7 +1597,7 @@ void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
         {
             normal = (Vector2){-(points[i + 2].y - points[i + 1].y), (points[i + 2].x - points[i + 1].x)};
             float normalLength = sqrtf(normal.x*normal.x + normal.y*normal.y);
-            
+
             if (normalLength > 0.0f)
             {
                 normal.x /= normalLength;
@@ -1615,7 +1616,7 @@ void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
 
         Vector2 radius = { prevNormal.x + normal.x, prevNormal.y + normal.y };
         float radiusLength = sqrtf(radius.x*radius.x + radius.y*radius.y);
-        
+
         if (radiusLength > 0.0f)
         {
             radius.x /= radiusLength;
@@ -1639,7 +1640,7 @@ void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
             radius.x = 0.0f;
             radius.y = 0.0f;
         }
-        
+
         Vector2 strip[4] = {
             { points[i].x - prevRadius.x, points[i].y - prevRadius.y },
             { points[i].x + prevRadius.x, points[i].y + prevRadius.y },
@@ -1677,14 +1678,14 @@ void DrawSplineLinear(Vector2 *points, int pointCount, float thick, Color color)
         DrawTriangleStrip(strip, 4, color);
     }
 #endif
-    
+
 #if defined(SUPPORT_SPLINE_SEGMENT_CAPS)
     // TODO: Add spline segment rounded caps at the begin/end of the spline
 #endif
 }
 
 // Draw spline: B-Spline, minimum 4 points
-void DrawSplineBasis(Vector2 *points, int pointCount, float thick, Color color)
+void DrawSplineBasis(const Vector2 *points, int pointCount, float thick, Color color)
 {
     if (pointCount < 4) return;
 
@@ -1756,11 +1757,12 @@ void DrawSplineBasis(Vector2 *points, int pointCount, float thick, Color color)
         DrawTriangleStrip(vertices, 2*SPLINE_SEGMENT_DIVISIONS + 2, color);
     }
 
-    DrawCircleV(currentPoint, thick/2.0f, color);   // Draw end line circle-cap
+    // Cap circle drawing at the end of every segment
+    DrawCircleV(currentPoint, thick/2.0f, color);
 }
 
 // Draw spline: Catmull-Rom, minimum 4 points
-void DrawSplineCatmullRom(Vector2 *points, int pointCount, float thick, Color color)
+void DrawSplineCatmullRom(const Vector2 *points, int pointCount, float thick, Color color)
 {
     if (pointCount < 4) return;
 
@@ -1822,28 +1824,31 @@ void DrawSplineCatmullRom(Vector2 *points, int pointCount, float thick, Color co
         DrawTriangleStrip(vertices, 2*SPLINE_SEGMENT_DIVISIONS + 2, color);
     }
 
-    DrawCircleV(currentPoint, thick/2.0f, color);   // Draw end line circle-cap
+    // Cap circle drawing at the end of every segment
+    DrawCircleV(currentPoint, thick/2.0f, color);
 }
 
 // Draw spline: Quadratic Bezier, minimum 3 points (1 control point): [p1, c2, p3, c4...]
-void DrawSplineBezierQuadratic(Vector2 *points, int pointCount, float thick, Color color)
+void DrawSplineBezierQuadratic(const Vector2 *points, int pointCount, float thick, Color color)
 {
-    if (pointCount < 3) return;
-
-    for (int i = 0; i < pointCount - 2; i++)
+    if (pointCount >= 3)
     {
-        DrawSplineSegmentBezierQuadratic(points[i], points[i + 1], points[i + 2], thick, color);
+        for (int i = 0; i < pointCount - 2; i += 2) DrawSplineSegmentBezierQuadratic(points[i], points[i + 1], points[i + 2], thick, color);
+
+        // Cap circle drawing at the end of every segment
+        //for (int i = 2; i < pointCount - 2; i += 2) DrawCircleV(points[i], thick/2.0f, color);
     }
 }
 
 // Draw spline: Cubic Bezier, minimum 4 points (2 control points): [p1, c2, c3, p4, c5, c6...]
-void DrawSplineBezierCubic(Vector2 *points, int pointCount, float thick, Color color)
+void DrawSplineBezierCubic(const Vector2 *points, int pointCount, float thick, Color color)
 {
-    if (pointCount < 4) return;
-
-    for (int i = 0; i < pointCount - 3; i++)
+    if (pointCount >= 4)
     {
-        DrawSplineSegmentBezierCubic(points[i], points[i + 1], points[i + 2], points[i + 3], thick, color);
+        for (int i = 0; i < pointCount - 3; i += 3) DrawSplineSegmentBezierCubic(points[i], points[i + 1], points[i + 2], points[i + 3], thick, color);
+
+        // Cap circle drawing at the end of every segment
+        //for (int i = 3; i < pointCount - 3; i += 3) DrawCircleV(points[i], thick/2.0f, color);
     }
 }
 
@@ -2167,7 +2172,9 @@ bool CheckCollisionPointCircle(Vector2 point, Vector2 center, float radius)
 {
     bool collision = false;
 
-    collision = CheckCollisionCircles(point, 0, center, radius);
+    float distanceSquared = (point.x - center.x)*(point.x - center.x) + (point.y - center.y)*(point.y - center.y);
+
+    if (distanceSquared <= radius*radius) collision = true;
 
     return collision;
 }
@@ -2192,7 +2199,7 @@ bool CheckCollisionPointTriangle(Vector2 point, Vector2 p1, Vector2 p2, Vector2 
 
 // Check if point is within a polygon described by array of vertices
 // NOTE: Based on http://jeffreythompson.org/collision-detection/poly-point.php
-bool CheckCollisionPointPoly(Vector2 point, Vector2 *points, int pointCount)
+bool CheckCollisionPointPoly(Vector2 point, const Vector2 *points, int pointCount)
 {
     bool inside = false;
 
@@ -2201,7 +2208,7 @@ bool CheckCollisionPointPoly(Vector2 point, Vector2 *points, int pointCount)
         for (int i = 0, j = pointCount - 1; i < pointCount; j = i++)
         {
             if ((points[i].y > point.y) != (points[j].y > point.y) &&
-                (point.x < (points[j].x - points[i].x) * (point.y - points[i].y) / (points[j].y - points[i].y) + points[i].x))
+                (point.x < (points[j].x - points[i].x)*(point.y - points[i].y)/(points[j].y - points[i].y) + points[i].x))
             {
                 inside = !inside;
             }
@@ -2230,9 +2237,10 @@ bool CheckCollisionCircles(Vector2 center1, float radius1, Vector2 center2, floa
     float dx = center2.x - center1.x;      // X distance between centers
     float dy = center2.y - center1.y;      // Y distance between centers
 
-    float distance = sqrtf(dx*dx + dy*dy); // Distance between centers
+    float distanceSquared = dx*dx + dy*dy; // Distance between centers squared
+    float radiusSum = radius1 + radius2;
 
-    if (distance <= (radius1 + radius2)) collision = true;
+    collision = (distanceSquared <= (radiusSum*radiusSum));
 
     return collision;
 }
@@ -2312,6 +2320,30 @@ bool CheckCollisionPointLine(Vector2 point, Vector2 p1, Vector2 p2, int threshol
     return collision;
 }
 
+// Check if circle collides with a line created betweeen two points [p1] and [p2]
+RLAPI bool CheckCollisionCircleLine(Vector2 center, float radius, Vector2 p1, Vector2 p2)
+{
+    float dx = p1.x - p2.x;
+    float dy = p1.y - p2.y;
+
+    if ((fabsf(dx) + fabsf(dy)) <= FLT_EPSILON)
+    {
+        return CheckCollisionCircles(p1, 0, center, radius);
+    }
+
+    float lengthSQ = ((dx*dx) + (dy*dy));
+    float dotProduct = (((center.x - p1.x)*(p2.x - p1.x)) + ((center.y - p1.y)*(p2.y - p1.y)))/(lengthSQ);
+
+    if (dotProduct > 1.0f) dotProduct = 1.0f;
+    else if (dotProduct < 0.0f) dotProduct = 0.0f;
+
+    float dx2 = (p1.x - (dotProduct*(dx))) - center.x;
+    float dy2 = (p1.y - (dotProduct*(dy))) - center.y;
+    float distanceSQ = ((dx2*dx2) + (dy2*dy2));
+
+    return (distanceSQ <= radius*radius);
+}
+
 // Get collision rectangle for two rectangles collision
 Rectangle GetCollisionRec(Rectangle rec1, Rectangle rec2)
 {
@@ -2345,11 +2377,16 @@ Rectangle GetCollisionRec(Rectangle rec1, Rectangle rec2)
 // NOTE: Used by DrawLineBezier() only
 static float EaseCubicInOut(float t, float b, float c, float d)
 {
-    if ((t /= 0.5f*d) < 1) return 0.5f*c*t*t*t + b;
+    float result = 0.0f;
 
-    t -= 2;
+    if ((t /= 0.5f*d) < 1) result = 0.5f*c*t*t*t + b;
+    else
+    {
+        t -= 2;
+        result = 0.5f*c*(t*t*t + 2.0f) + b;
+    }
 
-    return 0.5f*c*(t*t*t + 2.0f) + b;
+    return result;
 }
 
 #endif      // SUPPORT_MODULE_RSHAPES
